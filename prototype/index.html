@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Obsidian WebDAV Sync — 原型</title>
+<style>
+  :root {
+    --bg: #1e1e1e;
+    --surface: #252526;
+    --surface-hover: #2d2d2d;
+    --border: #3c3c3c;
+    --text: #cccccc;
+    --text-dim: #888;
+    --text-bright: #e0e0e0;
+    --accent: #6c8cff;
+    --accent-dim: #4a6ae0;
+    --green: #4ec9b0;
+    --orange: #ce9178;
+    --red: #f44747;
+    --danger-bg: #4a1a1a;
+    --success-bg: #1a3a2a;
+    --radius: 6px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+
+  /* 顶部导航 */
+  .header {
+    width: 100%;
+    max-width: 860px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-bright);
+  }
+  .header .sub {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .header .badge {
+    font-size: 11px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 8px;
+    color: var(--text-dim);
+  }
+
+  /* 标签导航 */
+  .tabs {
+    display: flex;
+    gap: 0;
+    width: 100%;
+    max-width: 860px;
+    margin-bottom: 0;
+  }
+  .tab-btn {
+    padding: 10px 20px;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    font-family: var(--font);
+  }
+  .tab-btn:hover { color: var(--text-bright); background: var(--surface); }
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* 主卡片 */
+  .card {
+    width: 100%;
+    max-width: 860px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    border-top-left-radius: 0;
+    padding: 28px 32px;
+    margin-bottom: 16px;
+  }
+  .card.hidden { display: none; }
+
+  /* 设置组 */
+  .setting-group { margin-bottom: 24px; }
+  .setting-group:last-child { margin-bottom: 0; }
+  .setting-group h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 16px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .setting-group h3 .icon { margin-right: 6px; }
+
+  .setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    min-height: 36px;
+  }
+  .setting-item .label {
+    font-size: 13px;
+    color: var(--text);
+    flex-shrink: 0;
+    min-width: 120px;
+  }
+  .setting-item .desc {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 1px;
+  }
+  .setting-item .control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* 表单控件 */
+  input[type="text"],
+  input[type="password"],
+  input[type="number"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 10px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--mono);
+    width: 320px;
+    outline: none;
+    transition: border 0.15s;
+  }
+  input[type="text"]:focus,
+  input[type="password"]:focus,
+  input[type="number"]:focus {
+    border-color: var(--accent);
+  }
+  input[type="number"] { width: 80px; font-family: var(--font); }
+
+  select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 10px;
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  textarea {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 10px;
+    color: var(--text-dim);
+    font-size: 12px;
+    font-family: var(--mono);
+    width: 320px;
+    height: 64px;
+    outline: none;
+    resize: vertical;
+  }
+  textarea:focus { border-color: var(--accent); color: var(--text); }
+
+  /* 复选框 (toggle) */
+  .toggle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+  .toggle {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    background: #555;
+    border-radius: 10px;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .toggle.on::after { transform: translateX(16px); }
+  .toggle-label { font-size: 13px; }
+
+  /* 按钮 */
+  .btn {
+    padding: 6px 16px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface-hover);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    font-family: var(--font);
+    transition: all 0.15s;
+  }
+  .btn:hover { background: var(--border); }
+  .btn-primary {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: var(--accent); }
+  .btn-danger {
+    background: transparent;
+    border-color: var(--red);
+    color: var(--red);
+  }
+  .btn-danger:hover { background: var(--danger-bg); }
+  .btn-success {
+    background: transparent;
+    border-color: var(--green);
+    color: var(--green);
+  }
+  .btn-success:hover { background: var(--success-bg); }
+
+  /* 通知 */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 20px;
+    font-size: 13px;
+    max-width: 400px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    transform: translateY(120px);
+    opacity: 0;
+    transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    z-index: 100;
+  }
+  .toast.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  .toast .toast-title { font-weight: 600; color: var(--text-bright); margin-bottom: 4px; }
+  .toast .toast-detail { color: var(--text-dim); font-size: 12px; }
+
+  /* 同步界面 */
+  .sync-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .sync-header .left { display: flex; align-items: center; gap: 12px; }
+  .sync-status {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    background: var(--bg);
+  }
+  .sync-status.idle { color: var(--text-dim); }
+  .sync-status.syncing { color: var(--accent); }
+  .sync-status.done { color: var(--green); }
+  .sync-status.error { color: var(--red); }
+
+  /* 进度条 */
+  .progress-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--bg);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .progress-bar .fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--green));
+    border-radius: 2px;
+    transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* 文件列表 */
+  .file-list {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .file-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    font-family: var(--mono);
+    background: transparent;
+    transition: background 0.2s;
+  }
+  .file-item:last-child { border-bottom: none; }
+  .file-item .path { color: var(--text); }
+  .file-item .action {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-family: var(--font);
+  }
+  .action.upload { color: var(--accent); background: #1a1a3a; }
+  .action.download { color: var(--green); background: #1a3a2a; }
+  .action.conflict { color: var(--orange); background: #3a2a1a; }
+  .action.delete { color: var(--red); background: var(--danger-bg); }
+  .action.synced { color: var(--text-dim); background: transparent; }
+
+  .file-item.new-item {
+    animation: slideIn 0.3s ease-out;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .file-item .rename {
+    font-size: 11px;
+    color: var(--orange);
+    margin-left: 8px;
+  }
+
+  .file-list-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  /* 统计面板 */
+  .stats-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .stat-card {
+    flex: 1;
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    text-align: center;
+  }
+  .stat-card .num {
+    font-size: 24px;
+    font-weight: 700;
+    font-family: var(--mono);
+    color: var(--text-bright);
+  }
+  .stat-card .stat-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .stat-card .num.download { color: var(--green); }
+  .stat-card .num.upload { color: var(--accent); }
+  .stat-card .num.conflict { color: var(--orange); }
+
+  /* 帮助提示 */
+  .hint {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border-radius: var(--radius);
+    border-left: 3px solid var(--accent);
+  }
+
+  /* 连接状态指示器 */
+  .conn-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+  .conn-status .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+  }
+  .conn-status.connected .dot { background: var(--green); }
+  .conn-status.disconnected .dot { background: var(--red); }
+  .conn-status.unknown .dot { background: var(--orange); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>📦 Obsidian WebDAV Sync</h1>
+    <div class="sub">将本地 vault 与你的 WebDAV 服务器双向同步</div>
+  </div>
+  <span class="badge">v0.1.0 · 原型</span>
+</div>
+
+<!-- Tab 导航 -->
+<div class="tabs">
+  <button class="tab-btn active" data-tab="settings">⚙️ 设置</button>
+  <button class="tab-btn" data-tab="sync">🔄 同步</button>
+</div>
+
+<!-- ========== 设置面板 ========== -->
+<div class="card" id="tab-settings">
+
+  <!-- 连接信息 -->
+  <div class="setting-group">
+    <h3><span class="icon">🔗</span>WebDAV 服务器</h3>
+    <div class="setting-item">
+      <div><div class="label">服务器地址</div><div class="desc">WebDAV 服务完整 URL</div></div>
+      <input type="text" id="webdav-url" value="https://webdav.your-server.com/" placeholder="https://example.com/webdav/">
+    </div>
+    <div class="setting-item">
+      <div><div class="label">用户名</div></div>
+      <input type="text" id="webdav-user" value="webdav" placeholder="用户名">
+    </div>
+    <div class="setting-item">
+      <div><div class="label">密码</div></div>
+      <input type="password" id="webdav-pass" value="mypassword" placeholder="密码">
+    </div>
+    <div class="setting-item">
+      <div></div>
+      <div class="control">
+        <span class="conn-status unknown" id="conn-status">
+          <span class="dot"></span> 未检测
+        </span>
+        <button class="btn" onclick="testConnection()">🔄 测试连接</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 同步触发方式 -->
+  <div class="setting-group">
+    <h3><span class="icon">⏱️</span>触发方式</h3>
+    <div class="setting-item">
+      <div><div class="label">启动时自动同步</div><div class="desc">Obsidian 打开后 5 秒自动触发</div></div>
+      <div class="toggle-wrap" onclick="toggleSwitch(this)">
+        <div class="toggle on"></div>
+      </div>
+    </div>
+    <div class="setting-item">
+      <div><div class="label">保存时自动同步</div><div class="desc">每次保存文件时自动同步该文件</div></div>
+      <div class="toggle-wrap" onclick="toggleSwitch(this)">
+        <div class="toggle on"></div>
+      </div>
+    </div>
+    <div class="setting-item">
+      <div><div class="label">定时同步</div></div>
+      <div class="control">
+        <div class="toggle-wrap" onclick="toggleSwitch(this)">
+          <div class="toggle on"></div>
+        </div>
+        <span style="font-size:13px;color:var(--text-dim)">每</span>
+        <input type="number" id="sync-interval" value="10" min="1" max="1440">
+        <span style="font-size:13px;color:var(--text-dim)">分钟</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 同步选项 -->
+  <div class="setting-group">
+    <h3><span class="icon">↕️</span>同步选项</h3>
+    <div class="setting-item">
+      <div><div class="label">同步方向</div></div>
+      <select id="sync-direction">
+        <option value="bidirectional">双向同步（本地 ↔ 远程）</option>
+        <option value="upload_only">仅上传（本地 → 远程）</option>
+        <option value="download_only">仅下载（远程 → 本地）</option>
+      </select>
+    </div>
+    <div class="setting-item">
+      <div>
+        <div class="label">冲突处理</div>
+        <div class="desc">新文件覆盖旧文件，旧文件自动重命名备份</div>
+      </div>
+      <span style="font-size:12px;color:var(--orange);font-family:var(--mono)">newer_wins</span>
+    </div>
+  </div>
+
+  <!-- 文件过滤 -->
+  <div class="setting-group">
+    <h3><span class="icon">🔍</span>文件过滤</h3>
+    <div class="setting-item" style="align-items:flex-start;">
+      <div><div class="label">仅包含模式</div><div class="desc">一行一个 glob 模式，留空表示包含所有</div></div>
+      <textarea id="include-pattern" placeholder="*.md&#10;*.txt&#10;assets/**">*.md
+*.txt</textarea>
+    </div>
+    <div class="setting-item" style="align-items:flex-start;">
+      <div><div class="label">排除模式</div><div class="desc">始终排除 .obsidian/</div></div>
+      <textarea id="exclude-pattern" placeholder="archive/**&#10;tmp/**">archive/**
+.trash/**
+
+</textarea>
+    </div>
+  </div>
+
+  <!-- 操作 -->
+  <div style="display:flex;gap:8px;padding-top:12px;border-top:1px solid var(--border);">
+    <button class="btn btn-primary" onclick="saveSettings()">💾 保存设置</button>
+    <button class="btn btn-danger" onclick="document.getElementById('webdav-url').value='';showToast('设置已清空','所有字段已重置')">重置</button>
+  </div>
+  <div class="hint">
+    💡 提示：密码存储在 Obsidian 插件数据目录（vault 内），仅你可见。
+  </div>
+</div>
+
+<!-- ========== 同步面板 ========== -->
+<div class="card hidden" id="tab-sync">
+  <div class="sync-header">
+    <div class="left">
+      <span class="sync-status idle" id="sync-status">● 空闲</span>
+      <span style="font-size:12px;color:var(--text-dim)" id="last-sync">上次同步：从未</span>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn" onclick="simulateSync()">🔄 立即同步</button>
+      <button class="btn btn-danger" onclick="resetSync()">停止</button>
+    </div>
+  </div>
+
+  <div class="progress-bar" id="progress-bar">
+    <div class="fill" id="progress-fill"></div>
+  </div>
+
+  <!-- 统计卡片 -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="num" id="stat-upload">0</div>
+      <div class="stat-label">↑ 已上传</div>
+    </div>
+    <div class="stat-card">
+      <div class="num download" id="stat-download">0</div>
+      <div class="stat-label">↓ 已下载</div>
+    </div>
+    <div class="stat-card">
+      <div class="num conflict" id="stat-conflict">0</div>
+      <div class="stat-label">⚠️ 冲突备份</div>
+    </div>
+    <div class="stat-card">
+      <div class="num" id="stat-delete" style="color:var(--red)">0</div>
+      <div class="stat-label">✕ 已删除</div>
+    </div>
+    <div class="stat-card">
+      <div class="num" id="stat-synced" style="color:var(--text-dim)">12</div>
+      <div class="stat-label">✓ 已同步</div>
+    </div>
+  </div>
+
+  <!-- 同步日志 -->
+  <div class="file-list" id="sync-log">
+    <div class="file-list-empty" id="sync-empty">
+      还没有进行过同步。点击「立即同步」开始。
+    </div>
+  </div>
+</div>
+
+<!-- Toast 通知 -->
+<div class="toast" id="toast">
+  <div class="toast-title" id="toast-title"></div>
+  <div class="toast-detail" id="toast-detail"></div>
+</div>
+
+<script>
+// ========== 工具函数 ==========
+function toggleSwitch(el) {
+  const toggle = el.classList.contains('toggle-wrap') ? el.querySelector('.toggle') : el;
+  toggle.classList.toggle('on');
+}
+
+function showToast(title, detail, duration) {
+  const toast = document.getElementById('toast');
+  document.getElementById('toast-title').textContent = title;
+  document.getElementById('toast-detail').textContent = detail || '';
+  toast.classList.add('show');
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => toast.classList.remove('show'), duration || 3000);
+}
+
+// ========== 测试连接 ==========
+function testConnection() {
+  const status = document.getElementById('conn-status');
+  const url = document.getElementById('webdav-url').value;
+  if (!url) { showToast('⚠️ 请先输入服务器地址'); return; }
+
+  status.className = 'conn-status unknown';
+  status.innerHTML = '<span class="dot"></span> 连接中...';
+
+  setTimeout(() => {
+    status.className = 'conn-status connected';
+    status.innerHTML = '<span class="dot"></span> 已连接';
+    showToast('✅ 连接成功', `服务器 ${url} 响应正常`);
+  }, 1200);
+}
+
+// ========== 保存设置 ==========
+function saveSettings() {
+  showToast('💾 设置已保存', '所有配置已写入插件数据目录');
+}
+
+// ========== 模拟同步 ==========
+const syncLogs = [];
+let syncing = false;
+
+function addLogItem(action, path, detail) {
+  const el = document.createElement('div');
+  el.className = 'file-item new-item';
+  el.innerHTML = `
+    <span class="path">${path}</span>
+    <div>
+      <span class="action ${action}">${getActionLabel(action)}</span>
+      ${detail ? `<span class="rename">${detail}</span>` : ''}
+    </div>
+  `;
+  document.getElementById('sync-log').appendChild(el);
+}
+
+function getActionLabel(a) {
+  const map = { upload: '↑ 上传', download: '↓ 下载', conflict: '⚠️ 冲突备份', delete: '✕ 删除', synced: '✓ 已同步' };
+  return map[a] || a;
+}
+
+function resetSync() {
+  syncing = false;
+  document.getElementById('sync-status').className = 'sync-status idle';
+  document.getElementById('sync-status').textContent = '● 已停止';
+  document.getElementById('progress-fill').style.width = '0%';
+}
+
+function simulateSync() {
+  if (syncing) return;
+  syncing = true;
+
+  // 模拟场景：新文件、修改文件、远程文件、冲突
+  const files = [
+    { path: 'notes/daily.md', action: 'upload', delay: 500 },
+    { path: 'notes/project-plan.md', action: 'synced', delay: 1000 },
+    { path: 'assets/logo.png', action: 'upload', delay: 1600 },
+    { path: 'notes/meeting-notes.md', action: 'download', delay: 2200 },
+    { path: 'archive/old-note.md', action: 'conflict', delay: 2800, detail: '本地旧 → 重命名 old-note.2026-07-01_153000.md' },
+    { path: 'notes/todo.md', action: 'download', delay: 3400 },
+    { path: 'assets/hero.jpg', action: 'upload', delay: 4000 },
+    { path: 'tmp/draft.md', action: 'delete', delay: 4500 },
+  ];
+
+  // 清空旧日志
+  document.getElementById('sync-log').innerHTML = '';
+  document.getElementById('sync-empty').style.display = 'none';
+
+  // 重置统计
+  ['stat-upload','stat-download','stat-conflict','stat-delete','stat-synced'].forEach(id => {
+    document.getElementById(id).textContent = '0';
+  });
+
+  const statusEl = document.getElementById('sync-status');
+  const fill = document.getElementById('progress-fill');
+  const lastSync = document.getElementById('last-sync');
+  const total = files.length;
+
+  let uploaded = 0, downloaded = 0, conflicted = 0, deleted = 0, synced = 0;
+
+  statusEl.className = 'sync-status syncing';
+  statusEl.textContent = '⟳ 同步中...';
+  lastSync.textContent = '同步中...';
+
+  files.forEach((f, i) => {
+    setTimeout(() => {
+      if (!syncing) return;
+
+      addLogItem(f.action, f.path, f.detail || undefined);
+
+      if (f.action === 'upload') {
+        uploaded++;
+        document.getElementById('stat-upload').textContent = uploaded;
+      } else if (f.action === 'download') {
+        downloaded++;
+        document.getElementById('stat-download').textContent = downloaded;
+      } else if (f.action === 'conflict') {
+        conflicted++;
+        document.getElementById('stat-conflict').textContent = conflicted;
+      } else if (f.action === 'delete') {
+        deleted++;
+        document.getElementById('stat-delete').textContent = deleted;
+      } else {
+        synced++;
+        document.getElementById('stat-synced').textContent = parseInt(document.getElementById('stat-synced').textContent) + 1;
+      }
+
+      fill.style.width = `${((i + 1) / total) * 100}%`;
+
+      // 完成
+      if (i === files.length - 1) {
+        setTimeout(() => {
+          if (!syncing) return;
+          syncing = false;
+          statusEl.className = 'sync-status done';
+          statusEl.textContent = '● 同步完成';
+          const now = new Date();
+          lastSync.textContent = `上次同步：${now.toLocaleString('zh-CN')}`;
+          showToast('✅ 同步完成',
+            `↑ ${uploaded} 上传 · ↓ ${downloaded} 下载 · ⚠️ ${conflicted} 冲突 · ✕ ${deleted} 删除`
+          );
+        }, 400);
+      }
+    }, f.delay);
+  });
+}
+
+// ========== Tab 切换 ==========
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('#tab-settings, #tab-sync').forEach(el => el.classList.add('hidden'));
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.remove('hidden');
+  });
+});
+</script>
+</body>
+</html>

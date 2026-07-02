@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-webdav-sync",
+  "name": "WebDAV Sync",
+  "version": "0.1.0",
+  "minAppVersion": "0.15.0",
+  "description": "将 Obsidian vault 文件与 WebDAV 服务器进行双向同步",
+  "author": "",
+  "authorUrl": "",
+  "isDesktopOnly": false
+}

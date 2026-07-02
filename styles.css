@@ -1,0 +1,95 @@
+/* WebDAV Sync 插件设置界面样式 */
+
+/* 服务器连接状态指示 */
+.webdav-sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.webdav-sync-status.connected {
+  color: var(--text-accent);
+  background: var(--background-modifier-success);
+}
+
+.webdav-sync-status.disconnected {
+  color: var(--text-error);
+  background: var(--background-modifier-error);
+}
+
+/* 同步进度状态栏 */
+.webdav-sync-status-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+/* 设置界面中的文本区域 */
+.webdav-sync-textarea {
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  min-height: 60px;
+}
+
+/* 冲突备份文件名高亮 */
+.webdav-sync-backup-path {
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: 11px;
+}
+
+/* 同步日志条目 */
+.webdav-sync-log-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.webdav-sync-log-item:last-child {
+  border-bottom: none;
+}
+
+.webdav-sync-log-action {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.webdav-sync-log-action.upload {
+  color: var(--text-accent);
+  background: var(--background-modifier-accent);
+}
+
+.webdav-sync-log-action.download {
+  color: var(--text-success);
+}
+
+.webdav-sync-log-action.conflict {
+  color: var(--text-warning);
+}
+
+.webdav-sync-log-action.delete {
+  color: var(--text-error);
+}
+
+/* Ribbon 图标 */
+.webdav-sync-ribbon {
+  cursor: pointer;
+}
+
+/* Ribbon 图标同步中旋转动画 */
+.webdav-sync-ribbon.syncing {
+  animation: webdav-sync-spin 1s linear infinite;
+  color: var(--text-accent);
+}
+
+@keyframes webdav-sync-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
