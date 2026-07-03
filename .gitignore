@@ -1,3 +1,7 @@
 node_modules/
 *.js.map
 main.js
+openspec
+.claude
+CLAUDE.md
+PLAN.md
