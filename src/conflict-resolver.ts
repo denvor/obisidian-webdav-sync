@@ -65,22 +65,27 @@ export class ConflictResolver {
     // 1. 远程旧文件改名备份（加上目录前缀，和 executeConflictDownload 一致）
     const dir = path.includes("/") ? path.substring(0, path.lastIndexOf("/")) : "";
     const fullBackupPath = dir ? `${dir}/${backupPath.replace(/^.*\//, "")}` : backupPath;
+
+    // 如果没有本地内容可上传，就不执行备份和覆盖（避免删除远程文件后补不回来）
+    if (content === undefined) {
+      console.warn(`冲突上传跳过 ${path}: 本地文件内容不可读`);
+      return;
+    }
+
     try {
       await this.client.move(path, fullBackupPath);
     } catch (err) {
-      console.warn(`远程备份失败 ${path} → ${backupPath}:`, err);
+      console.warn(`远程备份失败 ${path} → ${fullBackupPath}:`, err);
       // MOVE 失败可能是远程文件不存在，继续上传
     }
 
     // 2. 上传本地新文件
-    if (content !== undefined) {
-      // 确保目录存在
-      const dirPath = path.includes("/") ? path.substring(0, path.lastIndexOf("/")) : "";
-      if (dirPath) {
-        await this.client.ensureDirectory(dirPath);
-      }
-      await this.client.upload(path, content);
+    // 确保目录存在
+    const dirPath = path.includes("/") ? path.substring(0, path.lastIndexOf("/")) : "";
+    if (dirPath) {
+      await this.client.ensureDirectory(dirPath);
     }
+    await this.client.upload(path, content);
   }
 
   /**

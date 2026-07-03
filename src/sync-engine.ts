@@ -119,11 +119,13 @@ export class SyncEngine {
       if (direction === "upload_only") {
         downloadPaths = [];
         deleteLocalPaths = [];
-        // 仅上传模式：不处理远程删除
+        // 仅上传模式下冲突也仅上传
+        conflictPaths = [];
       } else if (direction === "download_only") {
         uploadPaths = [];
         deleteRemotePaths = [];
-        // 仅下载模式：不处理本地上传和远程删除
+        // 仅下载模式下冲突也仅下载
+        conflictPaths = [];
       }
 
       // 阶段4: 处理冲突
@@ -490,7 +492,9 @@ export class SyncEngine {
       try {
         const content = await this.vault.adapter.read(path);
         realHash = await computeHash(content);
-      } catch {}
+      } catch (err) {
+        this.logger.warn(`重新计算下载文件 hash 失败 ${path}: ${err}`);
+      }
       const rf = remoteMap.get(path);
       this.tracker.setState(path, {
         localMtime: realMtime || 0,
