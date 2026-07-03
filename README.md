@@ -2,7 +2,24 @@
 
 将 Obsidian vault 文件与自建 WebDAV 服务器进行**双向同步**的 Obsidian 插件。
 
-## 功能
+## 什么是 Obsidian Vault
+
+Obsidian **Vault**（仓库）是一个文件夹，里面放你的所有 Markdown 笔记文件。这是 Obsidian 管理笔记的基本单元。
+
+**如何找到你的 Vault 位置：**
+
+1. 打开 Obsidian，点击左下角的 **齿轮图标**（设置）
+2. 在左侧菜单选择 → **关于**（About）
+3. 点击 **Vault 位置** 一栏的路径（打开文件夹图标即可看到完整路径）
+
+或者直接在 Obsidian 窗口左上角悬停你的 Vault 名称，会弹出完整路径。
+
+默认路径示例：
+- Windows: `C:\Users\你的用户名\Documents\Obsidian Vault`
+- macOS: `~/Documents/Obsidian Vault/`
+- Linux: `~/Documents/Obsidian Vault/`
+
+插件安装时，`manifest.json`、`main.js`、`styles.css` 三个文件需要放到 vault 目录下的 `.obsidian/plugins/obsidian-webdav-sync/` 文件夹中。
 
 - **双向同步** — 本地 ↔ 远程，自动对比文件变更
 - **多种触发方式** — 手动 / 保存时 / 定时 / 启动时，可多选互不冲突
@@ -50,7 +67,68 @@ scanLocal() → listRemote() → compare() → resolveConflicts() → executeAct
 2. 将 `main.js`、`manifest.json`、`styles.css` 复制到 vault 下的 `.obsidian/plugins/obsidian-webdav-sync/`
 3. 在已安装插件列表中启用 **WebDAV Sync**
 
-### 2. 部署 WebDAV 服务器
+### 2. 配置插件
+
+在插件设置中填写：
+
+| 字段 | 说明 |
+|------|------|
+| **WebDAV URL** | 服务器地址，如 `https://webdav.example.com/` |
+| **用户名** | Basic Auth 用户名 |
+| **密码** | Basic Auth 密码 |
+
+点击 **测试连接** 验证配置正确后，点击 **立即同步** 开始同步。
+
+## 触发方式
+
+| 方式 | 说明 |
+|------|------|
+| **手动** | 命令面板 → "Sync with WebDAV"，或设置页的"立即同步"按钮 |
+| **保存时** | 文件保存后 1 秒自动触发（防抖） |
+| **定时** | 可配置间隔（分钟） |
+| **启动时** | Obsidian 启动 5 秒后自动触发 |
+
+可在设置中任意组合开启。
+
+## 冲突处理
+
+当同一文件在本地和远程都被修改时：
+
+1. 比较双方的修改时间
+2. **较新的文件**保留原名，直接同步
+3. **较旧的文件**重命名备份：`filename.YYYY-MM-DD_HHmmss.ext`
+4. 上传冲突：远程旧文件 MOVE 改名 → PUT 本地新文件
+5. 下载冲突：本地旧文件 rename → GET 远程新文件
+
+## 文件过滤
+
+- `.obsidian/` **始终排除**
+- 可配置包含模式（仅同步匹配的文件）
+- 可配置排除模式（跳过指定文件/目录）
+- 支持 glob 模式：`*`、`**`、`?`、`{a,b}`
+
+## 构建
+
+```bash
+npm run build    # 构建出 main.js
+npm run dev      # 开发模式，监听文件变更
+```
+
+## 技术细节
+
+- **状态文件**：存储在 `.obsidian/plugins/obsidian-webdav-sync/file-states.json`
+- **日志文件**：存储在 `.obsidian/plugins/obsidian-webdav-sync/sync.log`
+- **哈希算法**：SHA-256 前 16 位十六进制
+- **远程文件标识**：使用 WebDAV 的 `ETag` 响应头
+- **WebDAV 方法**：PROPFIND / GET / PUT / DELETE / MKCOL / MOVE
+
+## License
+
+MIT
+
+---
+
+## 附录：部署 WebDAV 服务器
 
 推荐使用 **wsgidav + Nginx** 反向代理架构：
 
@@ -62,7 +140,7 @@ scanLocal() → listRemote() → compare() → resolveConflicts() → executeAct
 
 > **为什么不用 Nginx DAV 模块？** Nginx 内置的 `ngx_http_dav_module` 不支持 `PROPFIND`（列目录），而插件需要列出远程文件进行对比，所以需要完整的 WebDAV 实现。
 
-#### 2.1 安装 wsgidav
+### 1. 安装 wsgidav
 
 ```bash
 # 安装 Python 3 + venv (Ubuntu 24 自带 Python 3.12)
@@ -75,7 +153,7 @@ sudo python3 -m venv /opt/webdav/venv
 sudo /opt/webdav/venv/bin/pip install wsgidav cheroot
 ```
 
-#### 2.2 创建数据目录和用户
+### 2. 创建数据目录和用户
 
 ```bash
 sudo mkdir -p /var/www/webdav/data
@@ -85,7 +163,7 @@ sudo chown -R root:root /opt/webdav
 sudo chmod -R 755 /opt/webdav
 ```
 
-#### 2.3 配置 wsgidav
+### 3. 配置 wsgidav
 
 创建 `/etc/webdav/config.yaml`：
 
@@ -112,7 +190,7 @@ logging:
 
 > wsgidav 4.x 默认启用自己的 Basic Auth。通过以上配置放行所有请求，认证全部交给上游 Nginx。
 
-#### 2.4 创建 systemd 服务
+### 4. 创建 systemd 服务
 
 创建 `/etc/systemd/system/wsgidav.service`：
 
@@ -140,14 +218,14 @@ sudo systemctl enable --now wsgidav
 sudo systemctl status wsgidav
 ```
 
-#### 2.5 配置 Basic Auth 用户
+### 5. 配置 Basic Auth 用户
 
 ```bash
 sudo apt install apache2-utils -y
 sudo htpasswd -c /etc/nginx/.htpasswd webdav
 ```
 
-#### 2.6 配置 Nginx 反向代理
+### 6. 配置 Nginx 反向代理
 
 参考项目根目录的 [`webdav.conf.sample`](webdav.conf.sample)。
 
@@ -225,14 +303,14 @@ sudo ln -s /etc/nginx/sites-available/webdav /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-#### 2.7 SSL 证书（Let's Encrypt）
+### 7. SSL 证书（Let's Encrypt）
 
 ```bash
 sudo apt install certbot python3-certbot-nginx -y
 sudo certbot --nginx -d webdav.example.com
 ```
 
-#### 2.8 验证
+### 8. 验证
 
 ```bash
 # 从外网测试
@@ -241,68 +319,9 @@ curl -u webdav:你的密码 -X PROPFIND https://webdav.example.com/ -H "Depth: 1
 
 返回 XML 格式的目录列表即部署成功。
 
-#### 2.9 防火墙
+### 9. 防火墙
 
 ```bash
 sudo ufw allow 443/tcp
 sudo ufw reload
 ```
-
-### 3. 配置插件
-
-在插件设置中填写：
-
-| 字段 | 说明 |
-|------|------|
-| **WebDAV URL** | 服务器地址，如 `https://webdav.example.com/` |
-| **用户名** | Basic Auth 用户名 |
-| **密码** | Basic Auth 密码 |
-
-点击 **测试连接** 验证配置正确后，点击 **立即同步** 开始同步。
-
-## 触发方式
-
-| 方式 | 说明 |
-|------|------|
-| **手动** | 命令面板 → "Sync with WebDAV"，或设置页的"立即同步"按钮 |
-| **保存时** | 文件保存后 1 秒自动触发（防抖） |
-| **定时** | 可配置间隔（分钟） |
-| **启动时** | Obsidian 启动 5 秒后自动触发 |
-
-可在设置中任意组合开启。
-
-## 冲突处理
-
-当同一文件在本地和远程都被修改时：
-
-1. 比较双方的修改时间
-2. **较新的文件**保留原名，直接同步
-3. **较旧的文件**重命名备份：`filename.YYYY-MM-DD_HHmmss.ext`
-4. 上传冲突：远程旧文件 MOVE 改名 → PUT 本地新文件
-5. 下载冲突：本地旧文件 rename → GET 远程新文件
-
-## 文件过滤
-
-- `.obsidian/` **始终排除**
-- 可配置包含模式（仅同步匹配的文件）
-- 可配置排除模式（跳过指定文件/目录）
-- 支持 glob 模式：`*`、`**`、`?`、`{a,b}`
-
-## 构建
-
-```bash
-npm run build    # 构建出 main.js
-npm run dev      # 开发模式，监听文件变更
-```
-
-## 技术细节
-
-- **状态文件**：存储在 `.obsidian/plugins/obsidian-webdav-sync/file-states.json`
-- **日志文件**：存储在 `.obsidian/plugins/obsidian-webdav-sync/sync.log`
-- **哈希算法**：SHA-256 前 16 位十六进制
-- **远程文件标识**：使用 WebDAV 的 `ETag` 响应头
-- **WebDAV 方法**：PROPFIND / GET / PUT / DELETE / MKCOL / MOVE
-
-## License
-
-MIT
